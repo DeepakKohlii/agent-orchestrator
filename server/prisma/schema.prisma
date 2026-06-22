@@ -1,0 +1,116 @@
+// Agent Workflow Orchestration — data model
+// Mirrors the assignment's section 1A almost 1:1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Templates ────────────────────────────────────────────────────────────────
+model WorkflowDefinition {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  triggerType String   @default("manual")
+
+  // Ordered step definitions: [{ key, type: "TOOL"|"LLM", tool, dependsOn[] }]
+  steps                 Json
+  allowedTools          String[]
+  approvalRequiredTools String[]
+
+  createdAt String
+  runs      WorkflowRun[]
+}
+
+// ── Run instances ────────────────────────────────────────────────────────────
+model WorkflowRun {
+  id           String  @id @default(cuid())
+  definitionId String
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id])
+
+  inputPayload Json
+  status       String  @default("PENDING") // PENDING|RUNNING|WAITING_APPROVAL|COMPLETED|FAILED
+  currentStepKey String?
+  finalOutput  Json?
+
+  startedAt    String?
+  completedAt  String?
+  failedAt     String?
+  createdAt    String
+
+  stepRuns  StepRun[]
+  approvals Approval[]
+  events    RunEvent[]
+}
+
+model StepRun {
+  id        String  @id @default(cuid())
+  runId     String
+  run       WorkflowRun @relation(fields: [runId], references: [id])
+
+  stepKey   String
+  status    String  @default("PENDING") // PENDING|RUNNING|WAITING_APPROVAL|SUCCEEDED|FAILED|SKIPPED
+  input     Json?
+  output    Json?
+  error     String?
+  retryCount Int    @default(0)
+  dependsOn String[]
+
+  startedAt  String?
+  finishedAt String?
+
+  toolCalls ToolCall[]
+  approvals Approval[]
+}
+
+model ToolCall {
+  id         String  @id @default(cuid())
+  stepRunId  String
+  stepRun    StepRun @relation(fields: [stepRunId], references: [id])
+
+  toolName   String
+  input      Json
+  output     Json?
+  status     String  @default("RUNNING") // RUNNING|SUCCESS|ERROR
+  latencyMs  Int?
+  error      String?
+  createdAt  String
+}
+
+model Approval {
+  id        String  @id @default(cuid())
+  runId     String
+  run       WorkflowRun @relation(fields: [runId], references: [id])
+  stepRunId String
+  stepRun   StepRun @relation(fields: [stepRunId], references: [id])
+
+  status         String @default("PENDING") // PENDING|APPROVED|REJECTED
+  proposedAction String
+  reason         String
+  payload        Json
+  riskNotes      String
+  riskScore      Int    @default(0)
+  editedPayload  Json?
+  decidedBy      String?
+  decidedAt      String?
+  createdAt      String
+}
+
+// ── Append-only audit timeline ───────────────────────────────────────────────
+model RunEvent {
+  id        String  @id @default(cuid())
+  runId     String
+  run       WorkflowRun @relation(fields: [runId], references: [id])
+
+  seq       Int     // monotonic per-run sequence for ordering + SSE resume
+  type      String  // RUN_STARTED, STEP_STARTED, TOOL_CALL_LOGGED, APPROVAL_REQUESTED, ...
+  payload   Json
+  createdAt String
+
+  @@unique([runId, seq])
+  @@index([runId])
+}
