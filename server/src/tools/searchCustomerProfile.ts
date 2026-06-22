@@ -1,6 +1,27 @@
 import { z } from "zod";
 import { defineTool } from "./types.js";
 import { prisma } from "../db/client.js";
+import { isMockMode } from "../runtime.js";
+
+// Deterministic stand-in used when mock mode is on (no DB dependency).
+const MOCK_PROFILE = {
+  customerId: "cust_mock",
+  name: "Jordan Avery",
+  email: "jordan@example.com",
+  company: "Brightwave Studios",
+  plan: "pro" as const,
+  region: "US-East",
+  phone: "+1-202-555-0148",
+  tenureMonths: 14,
+  signupDate: "2025-04-12",
+  openTickets: 1,
+  lifetimeValueUsd: 4200,
+  accountStatus: "active" as const,
+  paymentStatus: "current" as const,
+  satisfactionScore: 82,
+  lastContactAt: "2026-06-02",
+  notes: "Mock profile (mock mode — CRM lookup skipped).",
+};
 
 // Real lookup against the mock CRM (Customer table). This is the tool that, in
 // production, would run the SQL query / CRM API call. The run input only carries
@@ -37,6 +58,11 @@ export const searchCustomerProfile = defineTool({
     notes: z.string(),
   }),
   async run(input) {
+    // Mock mode: skip the DB entirely and return a deterministic profile.
+    if (isMockMode()) {
+      return { ...MOCK_PROFILE, customerId: input.customerId ?? MOCK_PROFILE.customerId };
+    }
+
     const where = input.customerId
       ? { id: input.customerId }
       : { email: input.email! };

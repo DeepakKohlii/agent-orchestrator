@@ -3,9 +3,27 @@ import { prisma } from "../db/client.js";
 import { CreateRunSchema, ApprovalDecisionSchema } from "../domain/types.js";
 import { createRun, decideApproval, getRun, listRuns } from "../orchestrator/runService.js";
 import { subscribe } from "../events/sse.js";
-import { ApiError } from "./errors.js";
+import { setForcedMock, isMockMode, canUseReal, effectiveProvider } from "../runtime.js";
+import { config } from "../config.js";
+import { z } from "zod";
 
 export const router = Router();
+
+// Toggle runtime mock mode (UI switch). Returns the resulting mode.
+const ModeSchema = z.object({ mock: z.boolean() });
+router.post(
+  "/mode",
+  (req, res) => {
+    const { mock } = ModeSchema.parse(req.body);
+    setForcedMock(mock);
+    res.json({
+      mockMode: isMockMode(),
+      canUseReal: canUseReal(),
+      llmProvider: effectiveProvider(),
+      model: isMockMode() ? "mock" : config.llm.model,
+    });
+  },
+);
 
 const wrap =
   (fn: (req: any, res: any) => Promise<unknown>) =>

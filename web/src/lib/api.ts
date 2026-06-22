@@ -72,6 +72,8 @@ export interface Health {
   ok: boolean;
   llmProvider: string;
   model: string;
+  mockMode: boolean;
+  canUseReal: boolean;
 }
 
 async function http<T>(url: string, opts?: RequestInit): Promise<T> {
@@ -88,6 +90,11 @@ async function http<T>(url: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => http<Health>("/health"),
+  setMode: (mock: boolean) =>
+    http<{ mockMode: boolean; canUseReal: boolean; llmProvider: string; model: string }>(
+      "/api/mode",
+      { method: "POST", body: JSON.stringify({ mock }) },
+    ),
   listWorkflows: () => http<WorkflowDefinition[]>("/api/workflows"),
   listRuns: () => http<RunSummary[]>("/api/runs"),
   createRun: (definitionId: string, input: Record<string, unknown>) =>

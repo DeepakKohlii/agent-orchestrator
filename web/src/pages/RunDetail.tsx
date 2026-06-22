@@ -3,6 +3,25 @@ import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api, type StepRun, type Approval, type ToolCall } from "../lib/api.js";
 
+interface CustomerProfile {
+  customerId: string;
+  name: string;
+  email: string;
+  company: string;
+  plan: string;
+  region: string;
+  phone: string;
+  tenureMonths: number;
+  signupDate: string;
+  openTickets: number;
+  lifetimeValueUsd: number;
+  accountStatus: string;
+  paymentStatus: string;
+  satisfactionScore: number;
+  lastContactAt: string;
+  notes: string;
+}
+
 export function RunDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
@@ -35,6 +54,9 @@ export function RunDetail() {
   const done = run.stepRuns.filter((s) => s.status === "SUCCEEDED").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  const profile = run.stepRuns.find((s) => s.stepKey === "search_profile" && s.output)
+    ?.output as CustomerProfile | undefined;
+
   return (
     <div className="page run-page">
       <header className="run-header">
@@ -54,6 +76,8 @@ export function RunDetail() {
       </div>
 
       {pendingApproval && <ApprovalPanel approval={pendingApproval} runId={run.id} />}
+
+      {profile && <CustomerCard profile={profile} />}
 
       <div className="workspace">
         <section className="col-main">
@@ -184,6 +208,58 @@ function ApprovalPanel({ approval, runId }: { approval: Approval; runId: string 
           ✕ Reject run
         </button>
       </div>
+    </div>
+  );
+}
+
+function CustomerCard({ profile }: { profile: CustomerProfile }) {
+  const initials = profile.name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="customer-card">
+      <div className="cc-avatar">{initials}</div>
+      <div className="cc-body">
+        <div className="cc-top">
+          <div>
+            <strong className="cc-name">{profile.name}</strong>
+            <span className="cc-sub">
+              {profile.company} · {profile.email}
+            </span>
+          </div>
+          <div className="cc-tags">
+            <span className={`badge plan-${profile.plan}`}>{profile.plan}</span>
+            <span className={`badge acct-${profile.accountStatus}`}>
+              {label(profile.accountStatus)}
+            </span>
+            {profile.paymentStatus === "overdue" && (
+              <span className="badge b-failed">payment overdue</span>
+            )}
+          </div>
+        </div>
+        <div className="cc-stats">
+          <Stat label="Lifetime value" value={`$${profile.lifetimeValueUsd.toLocaleString()}`} />
+          <Stat label="Tenure" value={`${profile.tenureMonths} mo`} />
+          <Stat label="Open tickets" value={String(profile.openTickets)} />
+          <Stat label="CSAT" value={`${profile.satisfactionScore}/100`} />
+          <Stat label="Region" value={profile.region} />
+          <Stat label="Customer ID" value={profile.customerId} mono />
+        </div>
+        {profile.notes && <p className="cc-notes">📝 {profile.notes}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="cc-stat">
+      <span className="cc-stat-label">{label}</span>
+      <span className={`cc-stat-value ${mono ? "mono" : ""}`}>{value}</span>
     </div>
   );
 }

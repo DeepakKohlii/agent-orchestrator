@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
+import { isMockMode } from "../runtime.js";
 import { mockStructured } from "./mock.js";
 
 export interface StructuredRequest<T> {
@@ -31,14 +32,16 @@ export async function structuredComplete<T>(req: StructuredRequest<T>): Promise<
 }
 
 async function callProvider<T>(req: StructuredRequest<T>): Promise<unknown> {
+  // Runtime mock mode (UI toggle or no key) short-circuits any real provider.
+  if (isMockMode()) return mockStructured(req.schemaName, req.prompt);
   switch (config.llm.provider) {
-    case "mock":
-      return mockStructured(req.schemaName, req.prompt);
     case "anthropic":
       return callAnthropic(req);
     case "openai":
     case "groq":
       return callOpenAiCompatible(req);
+    default:
+      return mockStructured(req.schemaName, req.prompt);
   }
 }
 

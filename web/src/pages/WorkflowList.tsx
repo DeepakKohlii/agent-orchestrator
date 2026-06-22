@@ -26,6 +26,7 @@ export function WorkflowList() {
     queryFn: api.listWorkflows,
   });
   const { data: runs } = useQuery({ queryKey: ["runs"], queryFn: api.listRuns });
+  const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health });
 
   const [input, setInput] = useState(JSON.stringify(SAMPLE_INPUT, null, 2));
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -109,12 +110,18 @@ export function WorkflowList() {
             <p className="hint">
               Shared across runs. 🔒 marks an approval-required step.
             </p>
-            <p className="hint">
-              Try different customers — seeded IDs:{" "}
-              <code>cust_1024</code>, <code>cust_2048</code> (overdue enterprise),{" "}
-              <code>cust_4096</code> (at-risk), <code>cust_5120</code> (VIP),{" "}
-              <code>cust_3071</code> (free).
-            </p>
+            {health?.mockMode ? (
+              <p className="hint">
+                Mock mode — CRM lookup is skipped; a fixed demo profile is used.
+              </p>
+            ) : (
+              <p className="hint">
+                Try different customers — seeded IDs:{" "}
+                <code>cust_1024</code>, <code>cust_2048</code> (overdue enterprise),{" "}
+                <code>cust_4096</code> (at-risk), <code>cust_5120</code> (VIP),{" "}
+                <code>cust_3071</code> (free).
+              </p>
+            )}
           </div>
 
           <div className="panel">

@@ -3,13 +3,20 @@ import cors from "cors";
 import { config } from "./config.js";
 import { router } from "./api/routes.js";
 import { errorHandler } from "./api/errors.js";
+import { isMockMode, canUseReal, effectiveProvider } from "./runtime.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) =>
-  res.json({ ok: true, llmProvider: config.llm.provider, model: config.llm.model }),
+  res.json({
+    ok: true,
+    llmProvider: effectiveProvider(),
+    model: isMockMode() ? "mock" : config.llm.model,
+    mockMode: isMockMode(),
+    canUseReal: canUseReal(),
+  }),
 );
 
 app.use("/api", router);
