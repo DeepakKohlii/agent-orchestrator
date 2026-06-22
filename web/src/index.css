@@ -122,9 +122,12 @@ p { margin: 0; }
 /* ── Layout ────────────────────────────────────────────────────────────────── */
 .content { max-width: 1240px; margin: 0 auto; padding: 32px 28px 80px; }
 .page { display: flex; flex-direction: column; gap: 28px; }
-.workspace { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
 @media (max-width: 980px) { .workspace { grid-template-columns: 1fr; } }
-.col-side { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 90px; }
+/* min-width:0 lets grid tracks shrink below their content so long JSON lines
+   scroll/wrap inside their box instead of forcing page-wide horizontal scroll. */
+.col-main { min-width: 0; }
+.col-side { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 90px; min-width: 0; }
 .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .count, .tag {
   font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
@@ -311,7 +314,8 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 .json {
   background: #0c0d13; border: 1px solid var(--border); border-radius: 8px;
   padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6;
-  overflow: auto; max-height: 320px; margin: 6px 0 0;
+  overflow: auto; max-height: 360px; margin: 6px 0 0;
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
 }
 
 /* ── Approval card ─────────────────────────────────────────────────────────── */
@@ -341,7 +345,10 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   border: 1px solid var(--border);
 }
 .event-row .seq { color: var(--faint); font-family: var(--mono); font-size: 11px; }
-.etype { font-weight: 600; text-transform: capitalize; }
+.etype {
+  font-weight: 600; text-transform: capitalize;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .etype.tone-ok { color: var(--ok); }
 .etype.tone-warn { color: var(--warn); }
 .etype.tone-fail { color: var(--fail); }
