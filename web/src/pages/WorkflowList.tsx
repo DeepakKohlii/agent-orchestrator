@@ -3,14 +3,82 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { api, type WorkflowDefinition } from "../lib/api.js";
 
-const SAMPLE_INPUT = {
-  customerId: "cust_1024",
-  email: "jordan@example.com",
-  subject: "I was charged twice this month",
-  message:
-    "Hi, I just noticed two identical charges on my card for my Pro plan this month. " +
-    "Please refund the duplicate as soon as possible.",
-};
+interface Sample {
+  id: string;
+  label: string;
+  hint: string;
+  input: Record<string, unknown>;
+}
+
+// Each sample maps to a seeded customer + a distinct scenario, so the LLM
+// classification, risk, and draft differ run to run.
+const SAMPLES: Sample[] = [
+  {
+    id: "duplicate-charge",
+    label: "Duplicate charge",
+    hint: "Jordan · Pro · billing",
+    input: {
+      customerId: "cust_1024",
+      email: "jordan@example.com",
+      subject: "I was charged twice this month",
+      message:
+        "Hi, I just noticed two identical charges on my card for my Pro plan this month. " +
+        "Please refund the duplicate as soon as possible.",
+    },
+  },
+  {
+    id: "outage",
+    label: "Production outage",
+    hint: "Priya · Enterprise · urgent",
+    input: {
+      customerId: "cust_2048",
+      email: "priya@acme.io",
+      subject: "Production is down — whole team cannot log in",
+      message:
+        "Our entire team has been unable to access the dashboard since this morning. " +
+        "This is blocking our production operations. We need this fixed ASAP.",
+    },
+  },
+  {
+    id: "angry-billing",
+    label: "Frustrated customer",
+    hint: "Sofia · at-risk · churn risk",
+    input: {
+      customerId: "cust_4096",
+      email: "sofia@northstar.co",
+      subject: "Still being overcharged — extremely frustrated",
+      message:
+        "This is the third month in a row I've been charged incorrectly. I'm very frustrated " +
+        "and seriously considering cancelling our account. Please sort this out.",
+    },
+  },
+  {
+    id: "feature-request",
+    label: "Feature request",
+    hint: "David · VIP · positive",
+    input: {
+      customerId: "cust_5120",
+      email: "david@vertexpay.com",
+      subject: "Feature request: SAML SSO",
+      message:
+        "Love the product — it's been great for our team! Would it be possible to add SAML " +
+        "SSO for our organization? Any rough timeline would be helpful. Thanks!",
+    },
+  },
+  {
+    id: "general-question",
+    label: "Upgrade question",
+    hint: "Marcus · Free · general",
+    input: {
+      customerId: "cust_3071",
+      email: "marcus.lee@freemail.com",
+      subject: "Question about upgrading to Pro",
+      message:
+        "Hi, I'm currently on the free plan and wondering what the Pro plan includes and how " +
+        "billing works. Thanks!",
+    },
+  },
+];
 
 const FEATURES = [
   { icon: "🧩", title: "Durable state machine", desc: "Every run, step and transition is persisted and inspectable." },
@@ -27,8 +95,15 @@ export function WorkflowList() {
   });
   const { data: runs } = useQuery({ queryKey: ["runs"], queryFn: api.listRuns });
 
-  const [input, setInput] = useState(JSON.stringify(SAMPLE_INPUT, null, 2));
+  const [activeSample, setActiveSample] = useState(SAMPLES[0].id);
+  const [input, setInput] = useState(JSON.stringify(SAMPLES[0].input, null, 2));
   const [jsonError, setJsonError] = useState<string | null>(null);
+
+  const loadSample = (s: Sample) => {
+    setActiveSample(s.id);
+    setInput(JSON.stringify(s.input, null, 2));
+    setJsonError(null);
+  };
 
   const createRun = useMutation({
     mutationFn: (definitionId: string) => {
@@ -99,21 +174,33 @@ export function WorkflowList() {
               <h3>Run input</h3>
               <span className="tag">JSON</span>
             </div>
+
+            <div className="sample-row">
+              {SAMPLES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`sample-chip ${activeSample === s.id ? "active" : ""}`}
+                  onClick={() => loadSample(s)}
+                  title={s.hint}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setActiveSample("");
+              }}
               rows={14}
               spellCheck={false}
             />
             {jsonError && <p className="error">{jsonError}</p>}
             <p className="hint">
-              Shared across runs. 🔒 marks an approval-required step.
-            </p>
-            <p className="hint">
-              Try different customers — seeded IDs:{" "}
-              <code>cust_1024</code>, <code>cust_2048</code> (overdue enterprise),{" "}
-              <code>cust_4096</code> (at-risk), <code>cust_5120</code> (VIP),{" "}
-              <code>cust_3071</code> (free).
+              Pick a sample above or edit the JSON. 🔒 marks an approval-required step.
             </p>
           </div>
 
