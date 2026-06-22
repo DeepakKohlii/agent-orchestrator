@@ -106,7 +106,15 @@ export function WorkflowList() {
               spellCheck={false}
             />
             {jsonError && <p className="error">{jsonError}</p>}
-            <p className="hint">Shared across runs. 🔒 marks an approval-required step.</p>
+            <p className="hint">
+              Shared across runs. 🔒 marks an approval-required step.
+            </p>
+            <p className="hint">
+              Try different customers — seeded IDs:{" "}
+              <code>cust_1024</code>, <code>cust_2048</code> (overdue enterprise),{" "}
+              <code>cust_4096</code> (at-risk), <code>cust_5120</code> (VIP),{" "}
+              <code>cust_3071</code> (free).
+            </p>
           </div>
 
           <div className="panel">

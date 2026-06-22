@@ -17,6 +17,14 @@ export function buildInput(
         subject: runInput.subject,
         message: runInput.message,
         customerPlan: profile.plan,
+        accountContext: {
+          plan: profile.plan,
+          accountStatus: profile.accountStatus,
+          paymentStatus: profile.paymentStatus,
+          openTickets: profile.openTickets,
+          lifetimeValueUsd: profile.lifetimeValueUsd,
+          satisfactionScore: profile.satisfactionScore,
+        },
       };
 
     case "draft_reply":
@@ -31,7 +39,8 @@ export function buildInput(
     case "create_task":
       return {
         title: `Follow up: ${runInput.subject ?? "support ticket"}`,
-        description: `Ticket from ${profile.name ?? "customer"}. ` +
+        description: `Ticket from ${profile.name ?? "customer"} (${profile.company ?? "n/a"}, ` +
+          `${profile.plan ?? "n/a"} plan, account ${profile.accountStatus ?? "n/a"}). ` +
           `Category=${classification.category ?? "n/a"}, priority=${classification.priority ?? "medium"}.`,
         assignee: "support-team",
         priority: classification.priority ?? "medium",
