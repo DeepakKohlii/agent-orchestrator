@@ -23,7 +23,7 @@ export default function App() {
       qc.invalidateQueries({ queryKey: ["health"] });
       showToast(
         res.mockMode
-          ? "Switched to mock mode — deterministic, no DB / LLM calls."
+          ? "Switched to mock mode — LLM responses are deterministic (no API calls)."
           : `Switched to live mode — using ${res.llmProvider}.`,
         res.mockMode ? "warn" : "info",
       );
@@ -72,7 +72,7 @@ export default function App() {
                 lockedMock
                   ? "No LLM key configured — locked to mock mode"
                   : mock
-                    ? "Mock mode: deterministic, no DB / no LLM calls. Click to use the real provider."
+                    ? "Mock mode: LLM responses are deterministic (no API calls). Click to use the real provider."
                     : `Live: ${health.llmProvider}. Click to switch to mock mode.`
               }
             >
