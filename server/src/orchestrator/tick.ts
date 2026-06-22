@@ -75,9 +75,11 @@ async function runStep(
   const tool = getTool(step.tool);
 
   // ── Policy check (Bonus C) — BEFORE any execution ──
-  // Risk can be dynamic: if a prior classify step produced a riskScore, use it.
-  const dynamicRisk = (priorOutputs["classify"] as { riskScore?: number } | undefined)?.riskScore;
-  const policy = evaluatePolicy(tool, run.definition, dynamicRisk);
+  // Approval is gated on ACTION risk (the tool's own static risk), NOT on the
+  // LLM's ticket risk score. Rationale: the thing being governed (the LLM) must
+  // never decide whether it needs oversight — that's manipulable via prompt
+  // injection. The LLM's ticket riskScore is surfaced to the reviewer as context.
+  const policy = evaluatePolicy(tool, run.definition);
 
   if (!policy.allowed) {
     await emit(runId, RunEventType.POLICY_DENIED, { tool: tool.name, reason: policy.reason });
@@ -90,7 +92,8 @@ async function runStep(
       where: { stepRunId: sr.id, status: "APPROVED" },
     });
     if (!existing) {
-      await createApproval(runId, sr.id, tool.name, input, policy);
+      const ticketRisk = (priorOutputs["classify"] as { riskScore?: number } | undefined)?.riskScore;
+      await createApproval(runId, sr.id, tool.name, input, policy, ticketRisk);
       assertStepTransition(StepStatus.RUNNING, StepStatus.WAITING_APPROVAL);
       await prisma.stepRun.update({
         where: { id: sr.id },
@@ -137,7 +140,14 @@ async function createApproval(
   toolName: string,
   payload: unknown,
   policy: { reason: string; riskScore: number },
+  ticketRisk?: number,
 ) {
+  // riskScore on the approval = action risk (why the gate fired). The LLM's
+  // ticket risk is added to the notes as decision context, not as the gate.
+  const ticketNote =
+    typeof ticketRisk === "number"
+      ? ` Ticket risk assessed by the LLM: ${ticketRisk}/100 (context only).`
+      : "";
   await prisma.approval.create({
     data: {
       runId,
@@ -146,7 +156,7 @@ async function createApproval(
       proposedAction: toolName,
       reason: policy.reason,
       payload: payload as object,
-      riskNotes: `Risk score ${policy.riskScore}. Review payload before approving.`,
+      riskNotes: `${toolName} is a high-impact action and requires approval.${ticketNote} Review the payload before approving.`,
       riskScore: policy.riskScore,
       createdAt: nowIso(),
     },
