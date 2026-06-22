@@ -230,6 +230,30 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 .run-item-body small { font-size: 11px; color: var(--faint); }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
+/* Recent runs — full-width responsive grid */
+.run-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
+}
+.run-tile {
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  transition: 0.15s;
+}
+.run-tile:hover { border-color: var(--border-strong); transform: translateY(-2px); background: var(--panel); }
+.run-tile-top { display: flex; align-items: center; justify-content: space-between; }
+.run-tile-name { font-size: 14px; }
+.run-tile-meta { font-size: 11.5px; color: var(--faint); }
+.empty-runs {
+  padding: 28px; text-align: center; color: var(--muted); font-size: 13px;
+  border: 1px dashed var(--border); border-radius: var(--radius);
+}
+.view-all-btn {
+  margin-top: 14px; background: var(--panel); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 9px; padding: 9px 16px;
+  font-size: 13px; font-weight: 500;
+}
+.view-all-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
 /* ── Badges & status colors ────────────────────────────────────────────────── */
 .badge {
   font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 7px;

@@ -98,6 +98,10 @@ export function WorkflowList() {
   const [activeSample, setActiveSample] = useState(SAMPLES[0].id);
   const [input, setInput] = useState(JSON.stringify(SAMPLES[0].input, null, 2));
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [showAllRuns, setShowAllRuns] = useState(false);
+
+  const RUN_PREVIEW = 8;
+  const visibleRuns = showAllRuns ? runs : runs?.slice(0, RUN_PREVIEW);
 
   const loadSample = (s: Sample) => {
     setActiveSample(s.id);
@@ -203,30 +207,40 @@ export function WorkflowList() {
               Pick a sample above or edit the JSON. 🔒 marks an approval-required step.
             </p>
           </div>
+        </aside>
+      </div>
 
-          <div className="panel">
-            <div className="section-head">
-              <h3>Recent runs</h3>
-              <span className="count">{runs?.length ?? 0}</span>
-            </div>
-            {!runs?.length && <p className="hint">No runs yet — start one above.</p>}
-            <div className="run-list">
-              {runs?.map((r) => (
-                <Link key={r.id} to={`/runs/${r.id}`} className="run-item">
-                  <span className={`status-dot s-${r.status.toLowerCase()}`} />
-                  <div className="run-item-body">
-                    <strong>{r.definition.name}</strong>
-                    <small>
-                      {r._count.stepRuns} steps · {timeAgo(r.createdAt)}
-                    </small>
+      <section>
+        <div className="section-head">
+          <h2>Recent runs</h2>
+          <span className="count">{runs?.length ?? 0}</span>
+        </div>
+        {!runs?.length ? (
+          <div className="empty-runs">No runs yet — start one above.</div>
+        ) : (
+          <>
+            <div className="run-grid">
+              {visibleRuns!.map((r) => (
+                <Link key={r.id} to={`/runs/${r.id}`} className="run-tile">
+                  <div className="run-tile-top">
+                    <span className={`status-dot s-${r.status.toLowerCase()}`} />
+                    <span className={`badge b-${r.status.toLowerCase()}`}>{label(r.status)}</span>
                   </div>
-                  <span className={`badge b-${r.status.toLowerCase()}`}>{label(r.status)}</span>
+                  <strong className="run-tile-name">{r.definition.name}</strong>
+                  <small className="run-tile-meta">
+                    {r._count.stepRuns} steps · {timeAgo(r.createdAt)}
+                  </small>
                 </Link>
               ))}
             </div>
-          </div>
-        </aside>
-      </div>
+            {runs.length > RUN_PREVIEW && (
+              <button className="view-all-btn" onClick={() => setShowAllRuns((v) => !v)}>
+                {showAllRuns ? "Show fewer" : `View all ${runs.length} runs`}
+              </button>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
