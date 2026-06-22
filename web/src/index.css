@@ -281,6 +281,19 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 .acct-at_risk { background: var(--warn-bg); color: var(--warn); }
 .acct-churned { background: var(--fail-bg); color: var(--fail); }
 
+/* ── Account risk card ─────────────────────────────────────────────────────── */
+.risk-card {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px;
+  background: var(--card); box-shadow: var(--shadow);
+}
+.risk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.risk-card-head h3 { font-size: 15px; }
+.risk-card-text { font-size: 13.5px; line-height: 1.55; color: var(--text); margin-top: 10px; }
+.risk-card-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint);
+  margin-top: 14px;
+}
+
 /* ── Run header & progress ─────────────────────────────────────────────────── */
 .run-header { display: flex; justify-content: space-between; align-items: flex-end; }
 .run-header-right { display: flex; align-items: center; gap: 12px; }

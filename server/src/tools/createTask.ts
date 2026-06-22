@@ -11,6 +11,10 @@ export const createTask = defineTool({
     description: z.string(),
     assignee: z.string().default("support-team"),
     priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+    // Optional drafted reply carried by follow-up workflows, so the reviewer can
+    // approve the actual message and the created task contains what it must send.
+    replySubject: z.string().optional(),
+    replyBody: z.string().optional(),
   }),
   outputSchema: z.object({
     taskId: z.string(),

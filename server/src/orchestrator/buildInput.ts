@@ -7,6 +7,7 @@ export function buildInput(
 ): Record<string, unknown> {
   const profile = (priorOutputs["search_profile"] ?? {}) as Record<string, unknown>;
   const classification = (priorOutputs["classify"] ?? {}) as Record<string, unknown>;
+  const draft = (priorOutputs["draft"] ?? {}) as Record<string, unknown>;
 
   switch (step.tool) {
     case "search_customer_profile":
@@ -44,6 +45,9 @@ export function buildInput(
           `Category=${classification.category ?? "n/a"}, priority=${classification.priority ?? "medium"}.`,
         assignee: "support-team",
         priority: classification.priority ?? "medium",
+        // Carry the drafted reply (follow-up workflow) so it's reviewable at approval
+        // and the created task actually contains the message to send.
+        ...(draft.body ? { replySubject: draft.subject, replyBody: draft.body } : {}),
       };
 
     case "summarize_account":

@@ -58,6 +58,8 @@ export function RunDetail() {
 
   const profile = run.stepRuns.find((s) => s.stepKey === "search_profile" && s.output)
     ?.output as CustomerProfile | undefined;
+  const accountSummary = run.stepRuns.find((s) => s.stepKey === "summarize" && s.output)
+    ?.output as AccountSummary | undefined;
 
   return (
     <div className="page run-page">
@@ -80,6 +82,8 @@ export function RunDetail() {
       {pendingApproval && <ApprovalPanel approval={pendingApproval} runId={run.id} />}
 
       {profile && <CustomerCard profile={profile} />}
+
+      {accountSummary && <AccountRiskCard summary={accountSummary} />}
 
       <div className="workspace">
         <section className="col-main">
@@ -268,6 +272,36 @@ function CustomerCard({ profile }: { profile: CustomerProfile }) {
 
 function num(v: number | undefined, fmt: (n: number) => string): string {
   return typeof v === "number" ? fmt(v) : "—";
+}
+
+interface AccountSummary {
+  summary?: string;
+  riskLevel?: string;
+  recommendedActions?: string[];
+}
+
+function AccountRiskCard({ summary }: { summary: AccountSummary }) {
+  const lvl = summary.riskLevel ?? "";
+  const actions = Array.isArray(summary.recommendedActions) ? summary.recommendedActions : [];
+  return (
+    <div className="risk-card">
+      <div className="risk-card-head">
+        <h3>📊 Account risk assessment</h3>
+        {lvl && <span className={`badge risk-tag-${lvl}`}>risk: {lvl}</span>}
+      </div>
+      {summary.summary && <p className="risk-card-text">{summary.summary}</p>}
+      {actions.length > 0 && (
+        <>
+          <div className="risk-card-label">Recommended actions</div>
+          <ul className="out-actions">
+            {actions.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ── Final output: render each step's result with a tailored card ──────────────
