@@ -1,148 +1,166 @@
 # Agent Workflow Orchestration & Observability Platform
 
 A mini platform for running AI agents that use tools to complete business workflows —
-with durable run state, a step state machine, typed tool-call logs, retries, human
-approvals, and a real-time run console.
+with a durable state machine, typed tool execution, full audit logs, retries, **human
+approval before high-impact actions**, and a real-time run console.
 
 ---
 
-## TL;DR architecture
+## What it does
+
+Two operational support workflows ship seeded and ready to run:
+
+- **Support Ticket Triage** — look up the customer → classify the ticket (LLM) → assess
+  account risk (LLM) → create an internal follow-up task *(requires approval)*.
+- **Customer Follow-up Drafting** — look up the customer → classify (LLM) → draft a reply
+  (LLM) → create a task to send the reply *(requires approval)*.
+
+You start a run from the console, watch each step execute live with full tool-call logs,
+and the run **pauses for your approval** before the high-impact action. You can approve,
+edit the payload, or reject — and everything is recorded in an append-only timeline.
+
+### The end-to-end demo loop
+
+```
+pick workflow + sample input → start run
+   → search_profile → classify → (summarize | draft)   [steps stream live via SSE]
+   → create_task is high-impact → run PAUSES, approval requested
+   → reviewer approves / edits / rejects
+   → on approve: task is persisted to the Task table (real, visible side effect)
+   → run completes; final output + full audit trail shown; task appears in the Tasks inbox
+```
+
+---
+
+## Architecture at a glance
 
 ```
 WorkflowDefinition (template)
-        │  start run
+        │  POST /api/runs (+ input)
         ▼
-   WorkflowRun ──contains──▶ StepRuns ──emit──▶ ToolCalls
-        │                        │
-        │ pauses on              └── every action appends to ──▶ RunEvents (audit log)
+   WorkflowRun ──contains──▶ StepRun ──calls──▶ ToolCall
+        │                       │
+        │  pauses on            └── every action appends to ──▶ RunEvent (audit log + SSE)
         ▼
-   Approval request  ──decision──▶ resume
+   Approval ──decision──▶ resume / terminate
 ```
 
-The "agent" is a **deterministic state machine** that executes an ordered list of steps.
-Some steps call a typed mock tool; some call an LLM for a *structured decision*. A single
-`tick(runId)` function advances a run by one step and persists after every transition.
-Pause/resume (for approvals) is just function re-entry.
+The "agent" is a **deterministic state machine**. A single `tick(runId)` function advances
+a run by one step, persisting after every transition. Some steps call typed mock tools;
+some call an LLM for a *validated structured decision*. Pause/resume (for approvals) is
+just function re-entry — the entire run state lives in the database, so it's recoverable.
 
-This is the explicitly-allowed "fixed workflow with LLM-assisted steps" model — chosen so
-that **reliability and observability** (most of the grade) win over model cleverness.
+This is the brief's explicitly-allowed *"fixed workflow with LLM-assisted steps"* model,
+chosen so reliability and observability win over autonomous-planning cleverness.
 
-## Stack
+**📚 Full details in [`docs/`](docs/) — start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).**
+
+---
+
+## Tech stack
 
 | Layer | Choice | Why |
 |---|---|---|
-| Backend | Node + TypeScript + Express | Small, no framework magic |
-| Validation | Zod | One tool for API validation, tool I/O typing, **and** LLM output validation |
-| DB | Postgres (Neon) via Prisma | Durable, cloud-deployable, typed client |
-| LLM | Auto-detected: Anthropic → OpenAI → Groq → mock | All Zod-validated; swap with one env var |
-| Real-time | SSE (no WebSockets) | One-way server→client updates; plain HTTP, auto-reconnect |
-| Frontend | React + TS + Vite + React Query | Polling + SSE live updates |
-
-### Why SSE and not WebSocket?
-We only ever push run updates **down** to the browser; approvals and run creation are
-normal POST requests. SSE is one-way server→client over plain HTTP, auto-reconnects in the
-browser, and deploys anywhere. WebSocket would be strictly more complexity for no benefit.
-
-### LLM provider auto-detection
-At startup `llm/client.ts` picks the provider by which key is present:
-`ANTHROPIC_API_KEY` → `OPENAI_API_KEY` → `GROQ_API_KEY` → **mock mode** (deterministic).
-Groq uses the OpenAI-compatible SDK (different baseURL), so there are only two real
-adapters plus mock. Every adapter returns a plain object that is Zod-validated identically.
+| Backend | Node + TypeScript + **Express** | Small, explicit, no framework magic |
+| Validation | **Zod** | One tool for API validation, tool I/O typing, **and** LLM output validation |
+| Database | **Postgres (Neon)** via **Prisma** | Durable, cloud-deployable, typed client |
+| LLM | Auto-detected: **Anthropic → OpenAI → Groq → mock** | All Zod-validated; switch with one env var |
+| Real-time | **SSE** (no WebSockets) | One-way server→client updates over plain HTTP; auto-reconnect |
+| Frontend | **React + TS + Vite + React Query** | Polling + SSE live updates |
+| Tests | **Vitest** | Unit (offline) + DB-gated integration |
 
 ---
 
-## Workflow state machine
+## Quick start
 
-### WorkflowRun
-| From | Event | To |
-|---|---|---|
-| PENDING | start | RUNNING |
-| RUNNING | next step needs approval | WAITING_APPROVAL |
-| WAITING_APPROVAL | approved | RUNNING |
-| WAITING_APPROVAL | rejected | FAILED |
-| RUNNING | no steps left | COMPLETED |
-| RUNNING | unrecoverable tool error | FAILED |
-
-### StepRun
-`PENDING → RUNNING → SUCCEEDED` | `RUNNING → WAITING_APPROVAL → (resume) RUNNING` |
-`RUNNING → FAILED` | `WAITING_APPROVAL → SKIPPED` (on reject)
-
-### Approval
-`PENDING → APPROVED | REJECTED` (APPROVED may carry an `editedPayload`).
-
----
-
-## Tool execution model
-
-Every tool is a typed contract validated by Zod:
-
-```ts
-interface Tool<I, O> {
-  name: string;
-  inputSchema: ZodSchema<I>;
-  outputSchema: ZodSchema<O>;
-  requiresApproval: boolean;
-  run(input: I, ctx): Promise<O>;
-}
-```
-
-The executor wrapper: **validate input → log ToolCall(RUNNING) → run with retry/timeout →
-validate output → log ToolCall(SUCCESS/ERROR) with latency**. Invalid input/output is a hard
-error, never silently swallowed.
-
-### Tool / agent boundary (safety)
-The LLM **never** invokes tools. It only *returns data*. The orchestrator decides which tool
-runs and checks an allow-list + approval/risk policy (`orchestrator/policy.ts`) before any
-execution. Policy denials are logged as run events.
-
----
-
-## Running locally
+**Prerequisites:** Node 18+, a Postgres connection string (a free [Neon](https://neon.tech)
+branch works). An LLM key is **optional** — without one the app runs in deterministic mock
+mode and the whole demo still works offline.
 
 ```bash
-# 1. Backend
+# 1) Backend
 cd server
-cp ../.env.example .env        # set DATABASE_URL (Neon) and optionally an LLM key
-npm install
+cp ../.env.example .env          # set DATABASE_URL; optionally add ONE LLM key
+npm install                      # also runs `prisma generate` (postinstall)
 npx prisma migrate dev --name init
-npm run seed                   # seed workflow templates + mock data
-npm run dev                    # http://localhost:4000
+npm run seed                     # seed 2 workflows + mock CRM customers
+npm run dev                      # http://localhost:4000
 
-# 2. Frontend
-cd ../web
+# 2) Frontend (new terminal)
+cd web
 npm install
-npm run dev                    # http://localhost:5173
+npm run dev                      # http://localhost:5173
 ```
 
-No LLM key? It runs in **mock mode** automatically — the full demo works offline.
+Open **http://localhost:5173**, pick a sample input, and start a run.
+
+### LLM provider (auto-detected)
+
+Set **one** key in `server/.env`; the provider is chosen at startup by priority:
+
+```
+ANTHROPIC_API_KEY  →  OPENAI_API_KEY  →  GROQ_API_KEY  →  mock mode (no key)
+```
+
+You can also flip **mock mode** at runtime from the nav toggle.
+
+---
+
+## Project layout
+
+```
+server/    Express API, Prisma schema, the orchestrator, tools, and LLM client
+web/       React run console (workflow list, run detail, tasks inbox)
+docs/      Architecture, API reference, and trade-offs
+```
+
+The `server/src/orchestrator` folder is the heart of it: the state machine, the step engine,
+the tool executor, and the policy/approval logic.
+
+---
+
+## Documentation
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the system fits together and why.
+- **[docs/API.md](docs/API.md)** — REST + SSE endpoint reference.
+- **[docs/TRADEOFFS.md](docs/TRADEOFFS.md)** — decisions, what's mocked, and production gaps.
+
+---
+
+## Testing
+
+```bash
+cd server && npm test          # vitest
+```
+
+| Suite | Covers |
+|---|---|
+| `stateMachine.test.ts` | Run + step transition matrix; illegal transitions throw |
+| `tools.test.ts` | Tool input validation, approval flags, registry, LLM output validity (mock) |
+| `policy.test.ts` | Allow-list denial, approval via flag/list, risk-threshold, dynamic override |
+| `integration.run.test.ts` | **Full run with approval** (pause → approve → complete) + reject → fail; audit trail + idempotency |
+
+Unit suites are pure and run offline (force mock mode). The integration suite runs against
+a real Postgres and **self-skips when `DATABASE_URL` is unset**.
 
 ---
 
 ## Bonus extensions
 
-- **C — Tool Policy Engine** ✅ allow-list + per-workflow rules + risk-threshold approvals,
-  denials logged as events. (Wired into the `tick` loop.)
-- **A — Real-time Streaming** ✅ SSE stream of run events; UI rehydrates full state on
-  reconnect/refresh then resumes the stream.
-- **B — Replay from checkpoint** — *designed for* (idempotency check prevents re-firing
-  already-approved actions) but documented as a stretch.
-
----
-
-## What would change for durable production execution
-
-- `tick()` becomes a **durable job**: a queue (e.g. SQS/BullMQ) + workers instead of running
-  inline on the HTTP request.
-- **Idempotency keys** per (run, step) so retries/replays never double-execute side effects.
-- **Optimistic locking** on a run `version` column to prevent concurrent ticks racing.
-- At-least-once delivery + dedup instead of in-process SSE hub (use Redis pub/sub or a
-  broker so multiple server instances can fan out events).
-- Outbox pattern for `RunEvent` so event emission is transactional with state changes.
+- **C — Tool Policy Engine** ✅ allow-list + per-workflow rules + risk-threshold approval; denials logged as events.
+- **A — Real-time Streaming** ✅ SSE event stream; UI rehydrates full state on reconnect, then resumes.
+- **B — Replay from checkpoint** — *not implemented* (designed-for; the idempotency guard that
+  prevents re-firing approved actions already exists). See [docs/TRADEOFFS.md](docs/TRADEOFFS.md).
 
 ---
 
 ## Assumptions
 
-- Single-user / no auth (out of scope per the brief).
-- One tick per request/resume; no distributed workers.
-- Mock tools write to the local DB instead of real CRM/ticketing systems.
+- Single-user; no authentication (out of scope per the brief).
+- One `tick` runs in-process per request/resume — no distributed queue/workers (see trade-offs).
+- Tools are mocked: `search_customer_profile` reads a seeded `Customer` table, `create_task`
+  writes a real `Task` row, and the LLM steps use the configured provider or mock mode.
+- `buildInput` (mapping a step's input from prior outputs) is hand-written per workflow — a
+  documented simplification; a generic mapping is described in the trade-offs doc.
+
+Full rationale and production gaps: **[docs/TRADEOFFS.md](docs/TRADEOFFS.md)**.
