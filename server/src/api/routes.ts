@@ -46,6 +46,14 @@ router.get(
   }),
 );
 
+router.get(
+  "/tasks",
+  wrap(async (_req, res) => {
+    const tasks = await prisma.task.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
+    res.json(tasks);
+  }),
+);
+
 
 router.post(
   "/runs",

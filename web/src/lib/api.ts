@@ -68,6 +68,19 @@ export interface RunSummary {
   _count: { stepRuns: number };
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignee: string;
+  priority: string;
+  status: string;
+  replySubject: string | null;
+  replyBody: string | null;
+  runId: string | null;
+  createdAt: string;
+}
+
 export interface Health {
   ok: boolean;
   llmProvider: string;
@@ -97,6 +110,7 @@ export const api = {
     ),
   listWorkflows: () => http<WorkflowDefinition[]>("/api/workflows"),
   listRuns: () => http<RunSummary[]>("/api/runs"),
+  listTasks: () => http<Task[]>("/api/tasks"),
   createRun: (definitionId: string, input: Record<string, unknown>) =>
     http<Run>("/api/runs", { method: "POST", body: JSON.stringify({ definitionId, input }) }),
   getRun: (id: string) => http<Run>(`/api/runs/${id}`),

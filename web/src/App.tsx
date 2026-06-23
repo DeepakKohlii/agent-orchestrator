@@ -56,6 +56,15 @@ export default function App() {
           </span>
         </Link>
 
+        <nav className="topbar-nav">
+          <Link to="/" className={`nav-link ${pathname === "/" ? "active" : ""}`}>
+            Workflows
+          </Link>
+          <Link to="/tasks" className={`nav-link ${pathname === "/tasks" ? "active" : ""}`}>
+            Tasks
+          </Link>
+        </nav>
+
         <div className="topbar-right">
           {onRun && (
             <Link to="/" className="ghost-btn">

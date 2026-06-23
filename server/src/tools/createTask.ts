@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineTool } from "./types.js";
+import { prisma } from "../db/client.js";
 
 export const createTask = defineTool({
   name: "create_task",
@@ -11,8 +12,6 @@ export const createTask = defineTool({
     description: z.string(),
     assignee: z.string().default("support-team"),
     priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
-    // Optional drafted reply carried by follow-up workflows, so the reviewer can
-    // approve the actual message and the created task contains what it must send.
     replySubject: z.string().optional(),
     replyBody: z.string().optional(),
   }),
@@ -20,11 +19,21 @@ export const createTask = defineTool({
     taskId: z.string(),
     createdAt: z.string(),
   }),
-  async run(input) {
-    // Mock side effect: would write to a Task table / external system.
-    return {
-      taskId: `task_${Math.random().toString(36).slice(2, 10)}`,
-      createdAt: new Date().toISOString(),
-    };
+  async run(input, ctx) {
+    const task = await prisma.task.create({
+      data: {
+        title: input.title,
+        description: input.description,
+        assignee: input.assignee ?? "support-team",
+        priority: input.priority ?? "medium",
+        status: "open",
+        replySubject: input.replySubject,
+        replyBody: input.replyBody,
+        runId: ctx.runId,
+        stepRunId: ctx.stepRunId,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    return { taskId: task.id, createdAt: task.createdAt };
   },
 });
