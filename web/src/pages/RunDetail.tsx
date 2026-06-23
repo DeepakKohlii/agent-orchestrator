@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { api, type StepRun, type Approval, type ToolCall } from "../lib/api.js";
+import { api, API_BASE, type StepRun, type Approval, type ToolCall } from "../lib/api.js";
 
 // All optional: older runs (created before the rich CRM lookup) only stored a
 // subset of fields, so the card must render gracefully with whatever is present.
@@ -39,7 +39,7 @@ export function RunDetail() {
 
   useEffect(() => {
     if (!id) return;
-    const es = new EventSource(`/api/runs/${id}/stream`);
+    const es = new EventSource(`${API_BASE}/api/runs/${id}/stream`);
     const onAny = () => qc.invalidateQueries({ queryKey: ["run", id] });
     es.onopen = () => setLive(true);
     es.onerror = () => setLive(false);

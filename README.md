@@ -127,6 +127,35 @@ the tool executor, and the policy/approval logic.
 
 ---
 
+## Deployment
+
+Backend on **Render** (free), frontend on **Vercel** (free), database on **Neon**.
+
+- **Backend (Render):** a [`render.yaml`](render.yaml) blueprint is included — it builds
+  `server/`, runs `prisma migrate deploy` + seed, and starts the API. Set `DATABASE_URL`
+  (and optionally one LLM key) in the dashboard. *(Free instances sleep after ~15 min idle,
+  so the first request after a pause is slow — ping it before demoing.)*
+- **Frontend (Vercel):** import the repo with root directory `web/`. Set **`VITE_API_URL`**
+  to the Render backend URL. [`web/vercel.json`](web/vercel.json) handles SPA routing.
+
+Locally you set **nothing** for the frontend — `VITE_API_URL` is unset, so requests stay
+relative and the Vite dev server proxies them to `localhost:4000` automatically.
+
+## Deployment
+
+Backend on **Render** (free), frontend on **Vercel** (free), database on **Neon**.
+
+- **Backend (Render):** a [`render.yaml`](render.yaml) blueprint is included — it builds
+  `server/`, runs `prisma migrate deploy` + seed, and starts the API. Connect the repo as a
+  Blueprint and set `DATABASE_URL` (and optionally one LLM key) in the dashboard. *Free
+  instances sleep after ~15 min idle, so the first request after a pause is slow — ping the
+  `/health` URL before demoing.*
+- **Frontend (Vercel):** import the repo with root directory `web/`, then set **`VITE_API_URL`**
+  to the Render backend URL. [`web/vercel.json`](web/vercel.json) handles SPA routing.
+
+Locally you set **nothing** for the frontend — `VITE_API_URL` is unset, so requests stay
+relative and the Vite dev server proxies them to `localhost:4000` automatically.
+
 ## Testing
 
 ```bash

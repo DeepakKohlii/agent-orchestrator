@@ -89,8 +89,13 @@ export interface Health {
   canUseReal: boolean;
 }
 
+// In local dev this is empty, so requests are relative ("/api/...") and the Vite
+// dev-server proxy forwards them to localhost:4000 — no config needed.
+// In production (Vercel) set VITE_API_URL to the deployed backend URL.
+export const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 async function http<T>(url: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE}${url}`, {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });

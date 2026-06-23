@@ -10,6 +10,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Mock CRM ─────────────────────────────────────────────────────────────────
+// A local stand-in for a real customer database / CRM. The search_customer_profile
+// tool queries this table — i.e. this is the "SQL lookup" a production tool would do.
+model Customer {
+  id                String @id // e.g. "cust_1024"
+  name              String
+  email             String @unique
+  company           String
+  plan              String // free | pro | enterprise
+  region            String
+  phone             String
+  tenureMonths      Int
+  signupDate        String
+  openTickets       Int    @default(0)
+  lifetimeValueUsd  Int    @default(0)
+  accountStatus     String @default("active") // active | at_risk | churned
+  paymentStatus     String @default("current") // current | overdue
+  satisfactionScore Int    @default(80) // 0-100 (CSAT)
+  lastContactAt     String
+  notes             String @default("")
+}
+
+// Local stand-in for a real task manager. The create_task tool writes here
+// instead of calling an external system — a real, demonstrable side effect.
+model Task {
+  id           String  @id @default(cuid())
+  title        String
+  description  String
+  assignee     String
+  priority     String
+  status       String  @default("open")
+  replySubject String?
+  replyBody    String?
+  runId        String? // traceability back to the run that created it
+  stepRunId    String?
+  createdAt    String
+}
+
 // ── Templates ────────────────────────────────────────────────────────────────
 model WorkflowDefinition {
   id          String   @id @default(cuid())
