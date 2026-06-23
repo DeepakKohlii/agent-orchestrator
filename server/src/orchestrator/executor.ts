@@ -11,6 +11,26 @@ export interface ExecResult {
   retries: number;
 }
 
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Tool "${label}" timed out after ${ms}ms`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 export async function executeTool(
   tool: Tool,
   rawInput: unknown,
@@ -38,7 +58,11 @@ export async function executeTool(
     });
 
     try {
-      const output = await tool.run(parsedInput.data, ctx);
+      const output = await withTimeout(
+        tool.run(parsedInput.data, ctx),
+        config.toolTimeoutMs,
+        tool.name,
+      );
       const parsedOutput = tool.outputSchema.safeParse(output);
       if (!parsedOutput.success) {
         throw new Error(`Invalid tool output: ${parsedOutput.error.message}`);

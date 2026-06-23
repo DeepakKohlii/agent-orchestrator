@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api, type StepRun, type Approval, type ToolCall } from "../lib/api.js";
 
@@ -29,9 +29,10 @@ export function RunDetail() {
   const qc = useQueryClient();
   const [live, setLive] = useState(false);
 
-  const { data: run } = useQuery({
+  const { data: run, isLoading, isError, error } = useQuery({
     queryKey: ["run", id],
     queryFn: () => api.getRun(id!),
+    retry: 1,
     refetchInterval: (q) =>
       ["COMPLETED", "FAILED"].includes((q.state.data?.status as string) ?? "") ? false : 4000,
   });
@@ -49,7 +50,21 @@ export function RunDetail() {
     return () => es.close();
   }, [id, qc]);
 
-  if (!run) return <div className="page"><div className="skeleton-card" /></div>;
+  if (isError) {
+    return (
+      <div className="page">
+        <div className="error-box">
+          Couldn't load this run. {(error as Error)?.message ?? ""}
+          <div>
+            <Link to="/" className="ghost-btn" style={{ marginTop: 12, display: "inline-block" }}>
+              ← Back to workflows
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (isLoading || !run) return <div className="page"><div className="skeleton-card" /></div>;
 
   const pendingApproval = run.approvals.find((a) => a.status === "PENDING");
   const total = run.stepRuns.length;

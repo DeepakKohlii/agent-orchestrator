@@ -28,4 +28,5 @@ export const config = {
   },
   approvalRiskThreshold: 70,
   maxRetries: 2,
+  toolTimeoutMs: Number(process.env.TOOL_TIMEOUT_MS ?? 20000),
 } as const;

@@ -247,6 +247,15 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   padding: 28px; text-align: center; color: var(--muted); font-size: 13px;
   border: 1px dashed var(--border); border-radius: var(--radius);
 }
+.error-box {
+  padding: 16px 18px; border-radius: var(--radius-sm); font-size: 13px;
+  color: var(--fail); background: var(--fail-bg); border: 1px solid rgba(248,113,113,0.3);
+}
+.run-tile-skeleton {
+  height: 92px; border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--card), var(--panel), var(--card));
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+}
 .view-all-btn {
   margin-top: 14px; background: var(--panel); color: var(--muted);
   border: 1px solid var(--border); border-radius: 9px; padding: 9px 16px;

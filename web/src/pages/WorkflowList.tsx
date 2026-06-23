@@ -10,8 +10,6 @@ interface Sample {
   input: Record<string, unknown>;
 }
 
-// Each sample maps to a seeded customer + a distinct scenario, so the LLM
-// classification, risk, and draft differ run to run.
 const SAMPLES: Sample[] = [
   {
     id: "duplicate-charge",
@@ -89,11 +87,15 @@ const FEATURES = [
 
 export function WorkflowList() {
   const navigate = useNavigate();
-  const { data: workflows, isLoading } = useQuery({
+  const { data: workflows, isLoading, isError: wfError } = useQuery({
     queryKey: ["workflows"],
     queryFn: api.listWorkflows,
   });
-  const { data: runs } = useQuery({ queryKey: ["runs"], queryFn: api.listRuns });
+  const {
+    data: runs,
+    isLoading: runsLoading,
+    isError: runsError,
+  } = useQuery({ queryKey: ["runs"], queryFn: api.listRuns });
 
   const [activeSample, setActiveSample] = useState(SAMPLES[0].id);
   const [input, setInput] = useState(JSON.stringify(SAMPLES[0].input, null, 2));
@@ -157,7 +159,15 @@ export function WorkflowList() {
             <span className="count">{workflows?.length ?? 0}</span>
           </div>
 
-          {isLoading && <div className="skeleton-card" />}
+          {isLoading && (
+            <>
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+            </>
+          )}
+          {wfError && (
+            <div className="error-box">Couldn't load workflows. Is the backend running?</div>
+          )}
 
           {workflows?.map((wf) => (
             <WorkflowCard
@@ -215,7 +225,15 @@ export function WorkflowList() {
           <h2>Recent runs</h2>
           <span className="count">{runs?.length ?? 0}</span>
         </div>
-        {!runs?.length ? (
+        {runsLoading ? (
+          <div className="run-grid">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="run-tile-skeleton" />
+            ))}
+          </div>
+        ) : runsError ? (
+          <div className="error-box">Couldn't load recent runs. Is the backend running?</div>
+        ) : !runs?.length ? (
           <div className="empty-runs">No runs yet — start one above.</div>
         ) : (
           <>
