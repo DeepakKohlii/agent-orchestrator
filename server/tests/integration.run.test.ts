@@ -20,17 +20,13 @@ const STEPS = [
   { key: "create_task", name: "Create task", type: "TOOL", tool: "create_task", dependsOn: ["summarize"] },
 ];
 
-// Neutral ticket → mock classifier returns low risk, so only create_task (which
-// is approval-required by its own flag) pauses the run. Deterministic.
 const INPUT = {
   customerId: CUSTOMER_ID,
   subject: "Question about my plan",
   message: "Hi, I had a small question about how billing cycles work. Thanks!",
 };
 
-// Poll a LIGHT status-only query (not the heavy nested getRun) so we don't starve
-// the background tick of the shared DB connection. Returns the full run once a
-// target status is reached.
+
 async function waitFor(runId: string, statuses: string[], timeoutMs = 45000) {
   const start = Date.now();
   let last = "";
@@ -98,6 +94,7 @@ describe.skipIf(!HAS_DB)("integration: full run with approval", () => {
       select: { id: true },
     });
     const runIds = runs.map((r) => r.id);
+    await prisma.task.deleteMany({ where: { runId: { in: runIds } } });
     await prisma.toolCall.deleteMany({ where: { stepRun: { runId: { in: runIds } } } });
     await prisma.runEvent.deleteMany({ where: { runId: { in: runIds } } });
     await prisma.approval.deleteMany({ where: { runId: { in: runIds } } });

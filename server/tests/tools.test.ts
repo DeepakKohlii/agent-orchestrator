@@ -92,11 +92,16 @@ describe("LLM tool output is schema-valid in mock mode", () => {
     expect(summarizeAccount.outputSchema.safeParse(out).success).toBe(true);
   });
 
-  it("create_task produces a task id (mock side effect)", async () => {
-    const out = await createTask.run(
-      { title: "t", description: "d", assignee: "support-team", priority: "medium" },
-      { runId: "r", stepRunId: "s" },
-    );
-    expect(createTask.outputSchema.safeParse(out).success).toBe(true);
+  it("create_task accepts the optional drafted-reply fields", () => {
+    const ok = createTask.inputSchema.safeParse({
+      title: "Send reply",
+      description: "d",
+      assignee: "support-team",
+      priority: "high",
+      replySubject: "Re: your ticket",
+      replyBody: "Hello, ...",
+    });
+    expect(ok.success).toBe(true);
+    expect(createTask.outputSchema.safeParse({ taskId: "task_1", createdAt: "now" }).success).toBe(true);
   });
 });
